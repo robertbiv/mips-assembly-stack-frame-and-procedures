@@ -22,6 +22,8 @@ newline:     .byte 10
 .text
 .globl main
 
+j main
+
 # allocate 48 bytes
 alloc_bigint:
     li  $v0, 9
@@ -50,9 +52,11 @@ normalize:
     lw  $t0, 4($a0)
     blez $t0, norm_zero
     addiu $t0, $t0, -1
+    addiu $t9, $a0, 8
 norm_trim_loop:
     bltz $t0, norm_zero
-    lb  $t1, 8($a0)($t0)
+    addu $t8, $t9, $t0
+    lb  $t1, 0($t8)
     bne $t1, $zero, norm_set_sign
     addiu $t0, $t0, -1
     j   norm_trim_loop
@@ -79,8 +83,10 @@ norm_done:
 cmp_abs:
     lw  $t0, 4($a0)
     lw  $t1, 4($a1)
-    blt $t0, $t1, ca_less
-    bgt $t0, $t1, ca_greater
+    slt $t8, $t0, $t1
+    bne $t8, $zero, ca_less
+    slt $t8, $t1, $t0
+    bne $t8, $zero, ca_greater
     addiu $t2, $t0, -1
     addiu $t5, $a0, 8
     addiu $t6, $a1, 8
@@ -90,8 +96,10 @@ ca_loop:
     lb   $t3, 0($t7)
     addu $t7, $t6, $t2
     lb   $t4, 0($t7)
-    blt  $t3, $t4, ca_less
-    bgt  $t3, $t4, ca_greater
+    slt  $t8, $t3, $t4
+    bne  $t8, $zero, ca_less
+    slt  $t8, $t4, $t3
+    bne  $t8, $zero, ca_greater
     addiu $t2, $t2, -1
     j    ca_loop
 ca_equal:
@@ -106,18 +114,27 @@ ca_greater:
 
 # compare signed
 cmp:
-    addiu $sp, $sp, -16
-    sw    $ra, 12($sp)
+    addiu $sp, $sp, -20
+    sw    $ra, 16($sp)
+    sw    $a0, 12($sp)
+    sw    $a1, 8($sp)
+    
+    lw    $a0, 12($sp)
+    lw    $a1, 8($sp)
     lw    $t0, 0($a0)
     lw    $t1, 0($a1)
     bne   $t0, $t1, cmp_sign
-    move  $t2, $a0
-    move  $t3, $a1
+    
+    lw    $a0, 12($sp)
+    lw    $a1, 8($sp)
     jal   cmp_abs
     move  $t4, $v0
+    
+    lw    $a0, 12($sp)
+    lw    $t0, 0($a0)
     beq   $t0, $zero, cmp_same_sign_pos
     bgtz  $t0, cmp_same_sign_pos
-    sub   $v0, $zero, $t4
+    subu  $v0, $zero, $t4
     j     cmp_done
 cmp_same_sign_pos:
     move  $v0, $t4
@@ -126,111 +143,129 @@ cmp_sign:
     bltz  $t0, cmp_a_neg
     li    $v0, 1
     j     cmp_done
-cmp_a_pos:
-    li    $v0, 1
-    j     cmp_done
 cmp_a_neg:
     li    $v0, -1
 cmp_done:
-    lw    $ra, 12($sp)
-    addiu $sp, $sp, 16
+    lw    $ra, 16($sp)
+    addiu $sp, $sp, 20
     jr    $ra
 
 add_abs:
-    addiu $sp, $sp, -24
-    sw    $ra, 20($sp)
-    sw    $a0, 16($sp)
-    sw    $a1, 12($sp)
+    addiu $sp, $sp, -48
+    sw    $ra, 44($sp)
+    sw    $s1, 40($sp)
+    sw    $s2, 36($sp)
+    sw    $s3, 32($sp)
+    sw    $s4, 28($sp)
+    sw    $s5, 24($sp)
+    sw    $s6, 20($sp)
+    sw    $s7, 16($sp)
+    sw    $a0, 12($sp)
+    sw    $a1, 8($sp)
 
     jal   alloc_bigint
-    move  $t0, $v0
+    sw    $v0, 4($sp)
     li    $t6, 0
 
-    lw    $t2, 16($sp)
-    lw    $t3, 12($sp)
-    lw    $t4, 4($t2)
-    lw    $t5, 4($t3)
-    addiu $t10, $t2, 8
-    addiu $t11, $t3, 8
-    addiu $t12, $t0, 8
+    lw    $a0, 12($sp)
+    lw    $a1, 8($sp)
+    lw    $t4, 4($a0)
+    lw    $t5, 4($a1)
+    addiu $s2, $a0, 8
+    addiu $s3, $a1, 8
+    lw    $t0, 4($sp)
+    addiu $s4, $t0, 8
     move  $t7, $zero
 
 add_abs_loop:
     slt   $t8, $t7, $t4
     slt   $t9, $t7, $t5
-    or    $t13, $t8, $t9
-    bne   $t13, $zero, add_abs_calc
+    or    $s1, $t8, $t9
+    bne   $s1, $zero, add_abs_calc
     beq   $t6, $zero, add_abs_done
 
 add_abs_calc:
     beq   $t8, $zero, add_abs_da_zero
-    addu  $t14, $t10, $t7
-    lb    $t15, 0($t14)
+    addu  $t1, $s2, $t7
+    lb    $t2, 0($t1)
     j     add_abs_da_got
 add_abs_da_zero:
-    move  $t15, $zero
+    move  $t2, $zero
 add_abs_da_got:
     beq   $t9, $zero, add_abs_db_zero
-    addu  $t14, $t11, $t7
-    lb    $t16, 0($t14)
+    addu  $t1, $s3, $t7
+    lb    $t3, 0($t1)
     j     add_abs_db_got
 add_abs_db_zero:
-    move  $t16, $zero
+    move  $t3, $zero
 add_abs_db_got:
-    addu  $t17, $t15, $t16
-    addu  $t17, $t17, $t6
-    li    $t18, 10
-    div   $t17, $t18
-    mfhi  $t19
+    addu  $s5, $t2, $t3
+    addu  $s5, $s5, $t6
+    li    $s6, 10
+    div   $s5, $s6
+    mfhi  $s7
     mflo  $t6
-    addu  $t14, $t12, $t7
-    sb    $t19, 0($t14)
+    addu  $t1, $s4, $t7
+    sb    $s7, 0($t1)
     addiu $t7, $t7, 1
     j     add_abs_loop
 
 add_abs_done:
+    lw    $t0, 4($sp)
     sw    $t7, 4($t0)
     move  $v0, $t0
 
-    lw    $ra, 20($sp)
-    addiu $sp, $sp, 24
+    lw    $s7, 16($sp)
+    lw    $s6, 20($sp)
+    lw    $s5, 24($sp)
+    lw    $s4, 28($sp)
+    lw    $s3, 32($sp)
+    lw    $s2, 36($sp)
+    lw    $s1, 40($sp)
+    lw    $ra, 44($sp)
+    addiu $sp, $sp, 48
     jr    $ra
 
 sub_abs:
-    addiu $sp, $sp, -24
-    sw    $ra, 20($sp)
-    sw    $a0, 16($sp)
-    sw    $a1, 12($sp)
+    addiu $sp, $sp, -44
+    sw    $ra, 40($sp)
+    sw    $s1, 36($sp)
+    sw    $s2, 32($sp)
+    sw    $s3, 28($sp)
+    sw    $s4, 24($sp)
+    sw    $a0, 20($sp)
+    sw    $a1, 16($sp)
 
     jal   alloc_bigint
-    move  $t0, $v0
+    sw    $v0, 12($sp)
 
-    lw    $t2, 16($sp)
-    lw    $t3, 12($sp)
-    lw    $t4, 4($t2)
-    lw    $t5, 4($t3)
-    addiu $t10, $t2, 8
-    addiu $t11, $t3, 8
-    addiu $t12, $t0, 8
+    lw    $a0, 20($sp)
+    lw    $a1, 16($sp)
+    lw    $t4, 4($a0)
+    lw    $t5, 4($a1)
+    addiu $s2, $a0, 8
+    addiu $s3, $a1, 8
+    lw    $t0, 12($sp)
+    addiu $s4, $t0, 8
     move  $t7, $zero
     li    $t6, 0
 
 sub_abs_loop:
     slt   $t8, $t7, $t4
     slt   $t9, $t7, $t5
-    or    $t13, $t8, $t9
-    beq   $t13, $zero, sub_abs_done
+    or    $s1, $t8, $t9
+    beq   $s1, $zero, sub_abs_done
 
     beq   $t8, $zero, sub_abs_da_zero
-    addu  $t14, $t10, $t7
-    lb    $t8, 0($t14)
+    addu  $t1, $s2, $t7
+    lb    $t8, 0($t1)
     j     sub_abs_da_got
 sub_abs_da_zero:
     move  $t8, $zero
 sub_abs_da_got:
     beq   $t9, $zero, sub_abs_db_zero
-    addu  $t14, $t11, $t7
-    lb    $t9, 0($t14)
+    addu  $t1, $s3, $t7
+    lb    $t9, 0($t1)
     j     sub_abs_db_got
 sub_abs_db_zero:
     move  $t9, $zero
@@ -247,8 +282,8 @@ sub_abs_borrow:
     subu  $t8, $t8, $t9
     li    $t6, 1
 sub_abs_store:
-    addu  $t14, $t12, $t7
-    sb    $t8, 0($t14)
+    addu  $t1, $s4, $t7
+    sb    $t8, 0($t1)
     addiu $t7, $t7, 1
     j     sub_abs_loop
 sub_abs_fix:
@@ -257,26 +292,33 @@ sub_abs_fix:
     j     sub_abs_after_borrow
 
 sub_abs_done:
-    # trim zeros
     addiu $t7, $t7, -1
     bltz  $t7, sub_abs_zero
+    lw    $t0, 12($sp)
+    addiu $s4, $t0, 8
 sub_abs_trim:
     bltz  $t7, sub_abs_zero
-    addu  $t14, $t12, $t7
-    lb    $t8, 0($t14)
+    addu  $t1, $s4, $t7
+    lb    $t8, 0($t1)
     bne   $t8, $zero, sub_abs_setlen
     addiu $t7, $t7, -1
     j     sub_abs_trim
 sub_abs_zero:
     li    $t7, 1
+    lw    $t0, 12($sp)
     sb    $zero, 8($t0)
 sub_abs_setlen:
     addiu $t7, $t7, 1
+    lw    $t0, 12($sp)
     sw    $t7, 4($t0)
     move  $v0, $t0
 
-    lw    $ra, 20($sp)
-    addiu $sp, $sp, 24
+    lw    $s4, 24($sp)
+    lw    $s3, 28($sp)
+    lw    $s2, 32($sp)
+    lw    $s1, 36($sp)
+    lw    $ra, 40($sp)
+    addiu $sp, $sp, 44
     jr    $ra
 
 addBig:
@@ -288,6 +330,8 @@ addBig:
     lw    $t0, 0($a0)
     lw    $t1, 0($a1)
     beq   $t0, $t1, add_same_sign
+    lw    $a0, 16($sp)
+    lw    $a1, 12($sp)
     jal   cmp_abs
     move  $t2, $v0
     bltz  $t2, add_diff_sign_b_greater
@@ -335,17 +379,23 @@ add_end:
     jr    $ra
 
 subBig:
-    addiu $sp, $sp, -16
-    sw    $ra, 12($sp)
+    addiu $sp, $sp, -20
+    sw    $ra, 16($sp)
+    sw    $a0, 12($sp)
+    sw    $a1, 8($sp)
+    
     jal   alloc_bigint
-    move  $t0, $v0
-    move  $t1, $a1
-    lw    $t2, 0($t1)
-    lw    $t3, 4($t1)
+    sw    $v0, 4($sp)
+    
+    lw    $a1, 8($sp)
+    lw    $t2, 0($a1)
+    lw    $t3, 4($a1)
+    lw    $t0, 4($sp)
     sw    $t2, 0($t0)
     sw    $t3, 4($t0)
+    
     li    $t4, 0
-    addiu $t6, $t1, 8
+    addiu $t6, $a1, 8
     addiu $t7, $t0, 8
 sub_copy_loop:
     beq   $t4, $t3, sub_copy_done
@@ -356,6 +406,7 @@ sub_copy_loop:
     addiu $t4, $t4, 1
     j     sub_copy_loop
 sub_copy_done:
+    lw    $t0, 4($sp)
     lw    $t2, 0($t0)
     beq   $t2, $zero, sub_sign_pos
     subu  $t2, $zero, $t2
@@ -365,36 +416,115 @@ sub_sign_pos:
     li    $t2, -1
     sw    $t2, 0($t0)
 sub_call:
-    move  $a1, $t0
+    lw    $a0, 12($sp)
+    lw    $a1, 4($sp)
     jal   addBig
-    lw    $ra, 12($sp)
-    addiu $sp, $sp, 16
+    
+    lw    $ra, 16($sp)
+    addiu $sp, $sp, 20
     jr    $ra
 
 pred_eq:
-    jal  cmp
-    seq  $v0, $v0, $zero
-    jr   $ra
+    addiu $sp, $sp, -16
+    sw    $ra, 12($sp)
+    sw    $a0, 8($sp)
+    sw    $a1, 4($sp)
+    jal   cmp
+    lw    $a1, 4($sp)
+    lw    $a0, 8($sp)
+    lw    $ra, 12($sp)
+    addiu $sp, $sp, 16
+    beq   $v0, $zero, peq_true
+    move  $v0, $zero
+    jr    $ra
+peq_true:
+    li    $v0, 1
+    jr    $ra
+
 pred_ne:
-    jal  cmp
-    sne  $v0, $v0, $zero
-    jr   $ra
+    addiu $sp, $sp, -16
+    sw    $ra, 12($sp)
+    sw    $a0, 8($sp)
+    sw    $a1, 4($sp)
+    jal   cmp
+    lw    $a1, 4($sp)
+    lw    $a0, 8($sp)
+    lw    $ra, 12($sp)
+    addiu $sp, $sp, 16
+    bne   $v0, $zero, pne_true
+    move  $v0, $zero
+    jr    $ra
+pne_true:
+    li    $v0, 1
+    jr    $ra
+
 pred_ge:
-    jal  cmp
-    sgt  $v0, $v0, $zero
-    jr   $ra
+    addiu $sp, $sp, -16
+    sw    $ra, 12($sp)
+    sw    $a0, 8($sp)
+    sw    $a1, 4($sp)
+    jal   cmp
+    lw    $a1, 4($sp)
+    lw    $a0, 8($sp)
+    lw    $ra, 12($sp)
+    addiu $sp, $sp, 16
+    bgtz  $v0, pge_true
+    move  $v0, $zero
+    jr    $ra
+pge_true:
+    li    $v0, 1
+    jr    $ra
+
 pred_geq:
-    jal  cmp
-    sge  $v0, $v0, $zero
-    jr   $ra
+    addiu $sp, $sp, -16
+    sw    $ra, 12($sp)
+    sw    $a0, 8($sp)
+    sw    $a1, 4($sp)
+    jal   cmp
+    lw    $a1, 4($sp)
+    lw    $a0, 8($sp)
+    lw    $ra, 12($sp)
+    addiu $sp, $sp, 16
+    bgez  $v0, pgeq_true
+    move  $v0, $zero
+    jr    $ra
+pgeq_true:
+    li    $v0, 1
+    jr    $ra
+
 pred_le:
-    jal  cmp
-    slt  $v0, $v0, $zero
-    jr   $ra
+    addiu $sp, $sp, -16
+    sw    $ra, 12($sp)
+    sw    $a0, 8($sp)
+    sw    $a1, 4($sp)
+    jal   cmp
+    lw    $a1, 4($sp)
+    lw    $a0, 8($sp)
+    lw    $ra, 12($sp)
+    addiu $sp, $sp, 16
+    bltz  $v0, ple_true
+    move  $v0, $zero
+    jr    $ra
+ple_true:
+    li    $v0, 1
+    jr    $ra
+
 pred_leq:
-    jal  cmp
-    sle  $v0, $v0, $zero
-    jr   $ra
+    addiu $sp, $sp, -16
+    sw    $ra, 12($sp)
+    sw    $a0, 8($sp)
+    sw    $a1, 4($sp)
+    jal   cmp
+    lw    $a1, 4($sp)
+    lw    $a0, 8($sp)
+    lw    $ra, 12($sp)
+    addiu $sp, $sp, 16
+    blez  $v0, pleq_true
+    move  $v0, $zero
+    jr    $ra
+pleq_true:
+    li    $v0, 1
+    jr    $ra
 
 # wrappers for assignment spec
 Add:
@@ -426,10 +556,12 @@ Leq:
 printBig:
     addiu $sp, $sp, -16
     sw    $ra, 12($sp)
+    sw    $a0, 8($sp)
+    
+    lw    $a0, 8($sp)
     lw    $t0, 0($a0)
     lw    $t1, 4($a0)
     beq   $t1, $zero, pb_print_zero
-    # check sign
     bltz  $t0, pb_minus
     bgtz  $t0, pb_digits
     j     pb_digits
@@ -438,6 +570,7 @@ pb_minus:
     li    $a0, 45
     syscall
 pb_digits:
+    lw    $a0, 8($sp)
     addiu $t2, $t1, -1
     addiu $t5, $a0, 8
 pb_loop:
@@ -468,26 +601,33 @@ pb_done:
     jr    $ra
 
 readBigInteractive:
-    addiu $sp, $sp, -16
-    sw    $ra, 12($sp)
-    move  $t0, $a0
+    addiu $sp, $sp, -20
+    sw    $ra, 16($sp)
+    sw    $s0, 12($sp)
+    sw    $s1, 8($sp)
+    
+    move  $s0, $a0
     jal   zero_bigint
-    move  $a0, $t0
+    
     li    $v0, 4
     la    $a0, prompt_sign
     syscall
     li    $v0, 5
     syscall
-    beq   $v0, $zero, rbi_sign_pos
+    move  $t0, $v0
+    beq   $t0, $zero, rbi_sign_pos
+    li    $t2, 1
+    bne   $t0, $t2, rbi_sign_pos
     li    $t1, -1
-    sw    $t1, 0($t0)
+    sw    $t1, 0($s0)
     j     rbi_sign_set
 rbi_sign_pos:
     li    $t1, 1
-    sw    $t1, 0($t0)
+    sw    $t1, 0($s0)
 rbi_sign_set:
-    li    $t2, 0          # len
-    addiu $t20, $t0, 8
+    li    $s1, 0
+    addiu $t8, $s0, 8
+    sw    $t8, 4($sp)
 
 rbi_loop:
     li    $v0, 4
@@ -501,29 +641,39 @@ rbi_loop:
     beq   $t3, $t4, rbi_end
     bltz  $t3, rbi_loop
     li    $t4, 9
-    bgt   $t3, $t4, rbi_loop
+    slt   $t8, $t4, $t3
+    bne   $t8, $zero, rbi_loop
     li    $t4, 40
-    bge   $t2, $t4, rbi_end
-    addiu $t5, $t2, -1
+    slt   $t8, $t4, $s1
+    beq   $t8, $zero, rbi_cont
+    j     rbi_end
+rbi_cont:
+    
+    addiu $t5, $s1, -1
+    lw    $t8, 4($sp)
 rbi_shift_loop:
     bltz  $t5, rbi_place
-    addu  $t6, $t20, $t5
+    addu  $t6, $t8, $t5
     lb    $t7, 0($t6)
     addiu $t6, $t6, 1
     sb    $t7, 0($t6)
     addiu $t5, $t5, -1
     j     rbi_shift_loop
 rbi_place:
-    sb    $t3, 0($t20)
-    addiu $t2, $t2, 1
+    lw    $t8, 4($sp)
+    sb    $t3, 0($t8)
+    addiu $s1, $s1, 1
     j     rbi_loop
 
 rbi_end:
-    sw    $t2, 4($t0)
-    move  $a0, $t0
+    sw    $s1, 4($s0)
+    move  $a0, $s0
     jal   normalize
-    lw    $ra, 12($sp)
-    addiu $sp, $sp, 16
+    
+    lw    $s1, 8($sp)
+    lw    $s0, 12($sp)
+    lw    $ra, 16($sp)
+    addiu $sp, $sp, 20
     jr    $ra
 
 # not used but included for completeness
