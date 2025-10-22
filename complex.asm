@@ -30,9 +30,14 @@ alloc_complex:
 addComplex:
     addiu $sp, $sp, -32
     sw    $ra, 28($sp)
+    sw    $a0, 24($sp)
+    sw    $a1, 20($sp)
 
     jal   alloc_complex
     move  $t0, $v0         
+
+    lw    $a0, 24($sp)
+    lw    $a1, 20($sp)
 
     # add real parts
     ldc1  $f0, 0($a0)      
@@ -58,10 +63,15 @@ addComplex:
 subComplex:
     addiu $sp, $sp, -32
     sw    $ra, 28($sp)
+    sw    $a0, 24($sp)
+    sw    $a1, 20($sp)
 
     # allocate result
     jal   alloc_complex
     move  $t0, $v0
+
+    lw    $a0, 24($sp)
+    lw    $a1, 20($sp)
 
     # real part
     ldc1  $f0, 0($a0)
@@ -93,8 +103,8 @@ printComplex:
     la    $a0, fmt_lparen
     syscall
 
-    lw    $t0, 16($sp)
-    ldc1  $f12, 0($t0)
+    lw    $a0, 16($sp)
+    ldc1  $f12, 0($a0)
     li    $v0, 3
     syscall
 
@@ -102,8 +112,8 @@ printComplex:
     la    $a0, fmt_comma
     syscall
 
-    lw    $t0, 16($sp)
-    ldc1  $f12, 8($t0)
+    lw    $a0, 16($sp)
+    ldc1  $f12, 8($a0)
     li    $v0, 3
     syscall
 

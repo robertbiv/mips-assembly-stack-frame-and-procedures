@@ -50,17 +50,24 @@ _gcd_abs_b:
 
 # reduce fraction
 reduceRational:
-    addiu $sp, $sp, -16
-    sw    $ra, 12($sp)
-    sw    $a0, 8($sp)
+    addiu $sp, $sp, -24
+    sw    $ra, 20($sp)
+    sw    $a0, 16($sp)
 
-    lw    $t0, 0($a0)
-    lw    $t1, 4($a0)
+    lw    $t8, 16($sp)
+    lw    $t0, 0($t8)
+    lw    $t1, 4($t8)
+
+    sw    $t0, 12($sp)
+    sw    $t1, 8($sp)
 
     beq   $t1, $zero, _reduce_done
 
     bltz  $t1, _reduce_flip
 _reduce_flip_done:
+
+    sw    $t0, 12($sp)
+    sw    $t1, 8($sp)
 
     move  $a0, $t0
     move  $a1, $t1
@@ -68,19 +75,22 @@ _reduce_flip_done:
     move  $t2, $v0
     beq   $t2, $zero, _reduce_done
 
+    lw    $t0, 12($sp)
+    lw    $t1, 8($sp)
+
     div   $t0, $t2
     mflo  $t0
     div   $t1, $t2
     mflo  $t1
 
-    lw    $t3, 8($sp)
+    lw    $t3, 16($sp)
     sw    $t0, 0($t3)
     sw    $t1, 4($t3)
 
 _reduce_done:
-    lw    $v0, 8($sp)
-    lw    $ra, 12($sp)
-    addiu $sp, $sp, 16
+    lw    $v0, 16($sp)
+    lw    $ra, 20($sp)
+    addiu $sp, $sp, 24
     jr    $ra
 _reduce_flip:
     sub   $t1, $zero, $t1
@@ -102,7 +112,6 @@ makeRational:
     sw    $t2, 4($t0)
     move  $a0, $t0
     jal   reduceRational
-    move  $v0, $a0
 
     lw    $ra, 20($sp)
     addiu $sp, $sp, 24
@@ -112,7 +121,11 @@ makeRational:
 addRational:
     addiu $sp, $sp, -24
     sw    $ra, 20($sp)
+    sw    $a0, 16($sp)
+    sw    $a1, 12($sp)
 
+    lw    $a0, 16($sp)
+    lw    $a1, 12($sp)
     lw    $t0, 0($a0)
     lw    $t1, 4($a0)
     lw    $t2, 0($a1)
@@ -139,7 +152,11 @@ addRational:
 subRational:
     addiu $sp, $sp, -24
     sw    $ra, 20($sp)
+    sw    $a0, 16($sp)
+    sw    $a1, 12($sp)
 
+    lw    $a0, 16($sp)
+    lw    $a1, 12($sp)
     lw    $t0, 0($a0)
     lw    $t1, 4($a0)
     lw    $t2, 0($a1)
@@ -166,7 +183,11 @@ subRational:
 mulRational:
     addiu $sp, $sp, -24
     sw    $ra, 20($sp)
+    sw    $a0, 16($sp)
+    sw    $a1, 12($sp)
 
+    lw    $a0, 16($sp)
+    lw    $a1, 12($sp)
     lw    $t0, 0($a0)   # a
     lw    $t1, 4($a0)   # b
     lw    $t2, 0($a1)   # c
@@ -189,7 +210,11 @@ mulRational:
 divRational:
     addiu $sp, $sp, -24
     sw    $ra, 20($sp)
+    sw    $a0, 16($sp)
+    sw    $a1, 12($sp)
 
+    lw    $a0, 16($sp)
+    lw    $a1, 12($sp)
     lw    $t0, 0($a0)   # a
     lw    $t1, 4($a0)   # b
     lw    $t2, 0($a1)   # c
@@ -212,26 +237,36 @@ divRational:
 
 # print rational as A/B
 printRational:
-    lw   $t0, 0($a0)
-    lw   $t1, 4($a0)
-    li   $v0, 1
-    move $a0, $t0
+    addiu $sp, $sp, -16
+    sw    $ra, 12($sp)
+    sw    $a0, 8($sp)
+
+    lw    $a0, 8($sp)
+    lw    $t0, 0($a0)
+    lw    $t1, 4($a0)
+    li    $v0, 1
+    move  $a0, $t0
     syscall
-    li   $v0, 11
-    li   $a0, 47
+    li    $v0, 11
+    li    $a0, 47
     syscall
-    li   $v0, 1
-    move $a0, $t1
+    li    $v0, 1
+    move  $a0, $t1
     syscall
-    li   $v0, 11
-    li   $a0, 10
+    li    $v0, 11
+    li    $a0, 10
     syscall
-    jr   $ra
+
+    lw    $ra, 12($sp)
+    addiu $sp, $sp, 16
+    jr    $ra
 
 printRationalFloat:
     addiu $sp, $sp, -16
     sw    $ra, 12($sp)
+    sw    $a0, 8($sp)
 
+    lw    $a0, 8($sp)
     lw    $t0, 0($a0)
     lw    $t1, 4($a0)
 
