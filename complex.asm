@@ -1,11 +1,5 @@
 # complex.asm
-# Problem 1: Complex numbers using MIPS (MARS/QtSPIM)
-# Structure: two doubles (real, imag) -> 16 bytes
-# API:
-#  - addComplex($a0=ptr A, $a1=ptr B) -> $v0=ptr result
-#  - subComplex($a0=ptr A, $a1=ptr B) -> $v0=ptr result
-#  - printComplex($a0=ptr) -> prints as (a, b) and newline
-# main: prompt for two complex numbers (doubles), call add/sub, print results
+# complex number struct and operations
 
 .data
 prompt_real1:   .asciiz "Enter real part of complex #1: "
@@ -15,47 +9,43 @@ prompt_imag2:   .asciiz "Enter imaginary part of complex #2: "
 label_sum:      .asciiz "Sum: "
 label_diff:     .asciiz "Difference: "
 fmt_lparen:     .asciiz "("
-fmt_comma_sp:   .asciiz ", "
-fmt_rparen_nl:  .asciiz ")\n"
+fmt_comma:      .asciiz ", "
+fmt_rparen:     .asciiz ")\n"
 
 .text
 .globl main
 
-# Allocate a Complex struct (16 bytes) and return pointer in $v0
+# allocate 16 bytes for a complex number
 alloc_complex:
     addiu $sp, $sp, -16
     sw    $ra, 12($sp)
-    li    $v0, 9            # sbrk
-    li    $a0, 16           # size of struct
+    li    $v0, 9           
+    li    $a0, 16          
     syscall
     lw    $ra, 12($sp)
     addiu $sp, $sp, 16
     jr    $ra
 
-# addComplex($a0=ptr A, $a1=ptr B) -> $v0=ptr result
-# result.real = A.real + B.real; result.imag = A.imag + B.imag
+# add two complex numbers
 addComplex:
     addiu $sp, $sp, -32
     sw    $ra, 28($sp)
 
-    # allocate result
     jal   alloc_complex
-    move  $t0, $v0         # result ptr in $t0
+    move  $t0, $v0         
 
-    # load A.real and B.real
-    ldc1  $f0, 0($a0)      # A.real
-    ldc1  $f2, 0($a1)      # B.real
-    add.d $f4, $f0, $f2    # sum real
+    # add real parts
+    ldc1  $f0, 0($a0)      
+    ldc1  $f2, 0($a1)      
+    add.d $f4, $f0, $f2    
 
-    # store result.real
     sdc1  $f4, 0($t0)
 
-    # load A.imag and B.imag
-    ldc1  $f6, 8($a0)      # A.imag
-    ldc1  $f8, 8($a1)      # B.imag
-    add.d $f10, $f6, $f8   # sum imag
+    # add imaginary parts
+    ldc1  $f6, 8($a0)      
+    ldc1  $f8, 8($a1)      
+    add.d $f10, $f6, $f8   
 
-    # store result.imag
     sdc1  $f10, 8($t0)
 
     move  $v0, $t0
@@ -64,30 +54,27 @@ addComplex:
     addiu $sp, $sp, 32
     jr    $ra
 
-# subComplex($a0=ptr A, $a1=ptr B) -> $v0=ptr result
-# result.real = A.real - B.real; result.imag = A.imag - B.imag
+# subtract two complex numbers
 subComplex:
     addiu $sp, $sp, -32
     sw    $ra, 28($sp)
 
     # allocate result
     jal   alloc_complex
-    move  $t0, $v0         # result ptr in $t0
+    move  $t0, $v0
 
-    # load A.real and B.real
-    ldc1  $f0, 0($a0)      # A.real
-    ldc1  $f2, 0($a1)      # B.real
-    sub.d $f4, $f0, $f2    # diff real
+    # real part
+    ldc1  $f0, 0($a0)
+    ldc1  $f2, 0($a1)
+    sub.d $f4, $f0, $f2
 
-    # store result.real
     sdc1  $f4, 0($t0)
 
-    # load A.imag and B.imag
-    ldc1  $f6, 8($a0)      # A.imag
-    ldc1  $f8, 8($a1)      # B.imag
-    sub.d $f10, $f6, $f8   # diff imag
+    # imaginary part
+    ldc1  $f6, 8($a0)
+    ldc1  $f8, 8($a1)
+    sub.d $f10, $f6, $f8
 
-    # store result.imag
     sdc1  $f10, 8($t0)
 
     move  $v0, $t0
@@ -96,38 +83,32 @@ subComplex:
     addiu $sp, $sp, 32
     jr    $ra
 
-# printComplex($a0=ptr)
-# prints: (real, imag)\n
+# print complex number as (a, b)
 printComplex:
     addiu $sp, $sp, -24
     sw    $ra, 20($sp)
-    sw    $a0, 16($sp)     # save pointer
+    sw    $a0, 16($sp)
 
-    # print "("
     li    $v0, 4
     la    $a0, fmt_lparen
     syscall
 
-    # print real (double)
-    lw    $t0, 16($sp)     # restore ptr
+    lw    $t0, 16($sp)
     ldc1  $f12, 0($t0)
     li    $v0, 3
     syscall
 
-    # print ", "
     li    $v0, 4
-    la    $a0, fmt_comma_sp
+    la    $a0, fmt_comma
     syscall
 
-    # print imag (double)
-    lw    $t0, 16($sp)     # restore ptr
+    lw    $t0, 16($sp)
     ldc1  $f12, 8($t0)
     li    $v0, 3
     syscall
 
-    # print ")\n"
     li    $v0, 4
-    la    $a0, fmt_rparen_nl
+    la    $a0, fmt_rparen
     syscall
 
     lw    $ra, 20($sp)
@@ -135,21 +116,21 @@ printComplex:
     jr    $ra
 
 main:
-    # Allocate two complex structs A and B
+    # allocate two complex numbers
     jal   alloc_complex
-    move  $s0, $v0         # A
+    move  $s0, $v0
     jal   alloc_complex
-    move  $s1, $v0         # B
+    move  $s1, $v0
 
-    # Prompt and read A.real
+    # read A.real
     li    $v0, 4
     la    $a0, prompt_real1
     syscall
-    li    $v0, 7           # read_double -> $f0
+    li    $v0, 7
     syscall
     sdc1  $f0, 0($s0)
 
-    # Prompt and read A.imag
+    # read A.imag
     li    $v0, 4
     la    $a0, prompt_imag1
     syscall
@@ -157,7 +138,7 @@ main:
     syscall
     sdc1  $f0, 8($s0)
 
-    # Prompt and read B.real
+    # read B.real
     li    $v0, 4
     la    $a0, prompt_real2
     syscall
@@ -165,7 +146,7 @@ main:
     syscall
     sdc1  $f0, 0($s1)
 
-    # Prompt and read B.imag
+    # read B.imag
     li    $v0, 4
     la    $a0, prompt_imag2
     syscall
@@ -173,26 +154,25 @@ main:
     syscall
     sdc1  $f0, 8($s1)
 
-    # Print Sum
+    # print sum
     li    $v0, 4
     la    $a0, label_sum
     syscall
     move  $a0, $s0
     move  $a1, $s1
-    jal   addComplex       # $v0 = sum
+    jal   addComplex
     move  $a0, $v0
     jal   printComplex
 
-    # Print Difference
+    # print difference
     li    $v0, 4
     la    $a0, label_diff
     syscall
     move  $a0, $s0
     move  $a1, $s1
-    jal   subComplex       # $v0 = diff
+    jal   subComplex
     move  $a0, $v0
     jal   printComplex
 
-    # Exit
     li    $v0, 10
     syscall
